@@ -39,11 +39,18 @@ exports.start = function() {
   noble.on('stateChange', function(state) {
     logger.info('BLE stateChange', { state: state });
 
-    if (state === 'poweredOn') noble.startScanning(); else noble.stopScanning();
+    if (state === 'poweredOn') {
+	    noble.startScanning(); 
+    	logger.info('BLE started scanning');
+	} else {
+		noble.stopScanning();
+    	logger.info('BLE stopped scanning');
+	}
   });
 
   noble.on('discover', function(peripheral) {
     var deviceType, entry, manufacturer, modelName;
+	logger.info('BLE discovered a perhiperhal');
 
     if (!peripheral) {
       logger.warning('BLE peripheralDiscover: null peripheral');
@@ -52,6 +59,8 @@ exports.start = function() {
 
     peripheral_scan(peripheral, function(ble) {
       var info, name, x, y, z;
+      logger.info('BLE in function(ble)', { info: info, name: name, x: x, y: y, z: z });
+	
 
       var value = function(s, c) {
         var i, u, v;
@@ -766,7 +775,8 @@ var uuidmap = {
 
 
 var peripheral_scan = function(peripheral, callback) {
-  var ble, m, zero;
+  var ble, m, zero; 
+  logger.info('Called peripheral_scan( )');
 
   peripheral.on('connect', function() {
     logger.info('BLE peripheralConnect', { localName: peripheral.advertisement.localName, uuid: peripheral.uuid });
@@ -784,7 +794,8 @@ var peripheral_scan = function(peripheral, callback) {
 
   peripheral.on('servicesDiscover', function(services) {
     var i, s;
-
+    logger.info('BLE servicesDiscover');
+	
     var characteristicsDiscover = function(service) {
       return function(characteristics) {
         var c, j, n;
@@ -794,7 +805,9 @@ var peripheral_scan = function(peripheral, callback) {
           c = characteristics[j];
           n = uuidmap[c.uuid] || { name: null, type: '' };
           service.characteristics[c.uuid] = {name: n.name, type: n.type, properties: c.properties, descriptors: {},endpoint: c};
-          c.on('descriptorsDiscover', descriptorsDiscover(service.characteristics[c.uuid]));
+          
+		  //logger.info('BLE characteristicsDiscover (returned funtion)', {character: service.characteristics[c.uuid]})
+		  c.on('descriptorsDiscover', descriptorsDiscover(service.characteristics[c.uuid]));
           c.discoverDescriptors();
 
           if (!!n.fetch) {
@@ -803,28 +816,43 @@ var peripheral_scan = function(peripheral, callback) {
             c.read();
           }
         }
-        if (--zero === 0) callback(ble);
+        if (--zero === 0) {
+	      callback(ble);
+	    } else {
+		  logger.info('--zero =', {zero: --zero})
+	    }
       };
     };
 
     var characteristicRead = function(characteristic) {
+	  logger.info('BLE characteristicRead');
       return function(data, isNotification) {/* jshint unused: false */
         characteristic.value = data;
-        if (--zero === 0) callback(ble);
-      };
+        if (--zero === 0) {
+	      callback(ble);
+	    } else {
+		  logger.info('--zero =', {zero: --zero})
+	    }
+	      };
     };
 
     var descriptorsDiscover = function(characteristic) {
+	  logger.info('BLE descriptorsDiscover');
       return function(descriptors) {
         var d, k, o;
 
         for (k = 0; k < descriptors.length; k++) {
           d = descriptors[k];
           o = uuidmap[d.uuid] || { name: null, type: '' };
+		  logger.info('BLE descriptorsDiscover (returned function) ', { name: o.name, type: o.type } )
           characteristic.descriptors[d.uuid] = { name: o.name, type: o.type };
         }
-        if (--zero === 0) callback(ble);
-      };
+        if (--zero === 0) {
+	      callback(ble);
+	    } else {
+		  logger.info('--zero =', {zero: --zero})
+	    }
+	      };
     };
 
     ble = {};
@@ -838,8 +866,20 @@ var peripheral_scan = function(peripheral, callback) {
       s.on('characteristicsDiscover', characteristicsDiscover(ble[s.uuid]));
       s.discoverCharacteristics();
     }
-    if (--zero === 0) callback(ble);
+    if (--zero === 0) {
+      callback(ble);
+    } else {
+	  logger.info('--zero =', {zero: --zero})
+    }
   });
 
-  peripheral.connect();
+  logger.info('At end of peripheral_scan( )')
+  logger.info('BLE peripheral', { localName: peripheral.advertisement.localName, uuid: peripheral.uuid });
+  if ( peripheral.uuid == '78c5e56cfa67') {
+	logger.info('CONNECTING');
+    peripheral.connect();
+ } else {
+	logger.info('SKIPPED CONNECT');
+ }
+  logger.info('Just called peripheral.connect( )')
 };
