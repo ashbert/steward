@@ -69,10 +69,6 @@ These functions take two arguments: a string and a property-list object, e.g.,
 _Third_,
 is the _prototype_ function that is invoked by the steward whenever an instance of this device is (re-)discovered:
 
-    var Macguffin = exports.Device = function(deviceID, deviceUID, info) {
-      ...
-    }
-
 _Fourth_,
 comes the optional _observe_ section, that implements asynchronous observation of events.
 
@@ -84,11 +80,98 @@ comes the _start()_ function.
 
 ### The Prototype function
 
+    var Macguffin = exports.Device = function(deviceID, deviceUID, info) {
+      // begin boilerpate...
+      var self = this;
+    
+      self.whatami = info.deviceType;
+      self.deviceID = deviceID.toString();
+      self.deviceUID = deviceUID;
+      self.name = info.device.name;
+    
+      self.info = utility.clone(info);
+      delete(self.info.id);
+      delete(self.info.device);
+      delete(self.info.deviceType);
+      // end boilerplate...
+
+      self.status = '...';
+      self.changed();
+    
+      // perform initialization here
+    
+      utility.broker.subscribe('actors', function(request, taskID, actor, observe, parameter) {
+        if (request === 'ping') {
+          logger.info('device/' + self.deviceID, { status: self.status });
+          return;
+        }
+    
+             if (actor !== ('device/' + self.deviceID)) return;
+        else if (request === 'observe') self.observer(self, taskID, observe, parameter);
+        else if (request === 'perform') self.perform(self, taskID, observe, parameter);
+      });
+    };
+    util.inherits(Macguffin, indicator.Device);
+
 ### The Observe section
+The prototype function invokes this whenever the _steward_ module publishes a request to the actor asking that a particular
+event be monitored:
+
+
+    Macguffin.prototype.observe = function(self, eventID, observe, parameter) {
+      var params;
+
+      try { params = JSON.parse(parameter); } catch(ex) { params = {}; }
+
+      switch (observe) {
+        case '...':
+          // create a data structure to monitor for this observe/params pair
+
+          // whenever an event occurs, invoke
+          //     steward.observed(eventID);
+
+          // now tell the steward that monitoring has started
+          steward.report(eventID);
+          break;
+
+        default:
+          break;
+      }
+    }
+
 
 ### The Perform section
+The prototype function invokes this whenever the _steward_ module publishes a request to the actor asking that a particular
+task be performed:
 
-#### The start() function: Linkage
+    Macguffin.prototype.perform = function(self, taskID, perform, parameter) {
+      var params;
+
+      try { params = JSON.parse(parameter); } catch(ex) { params = {}; }
+
+      if (perform === 'set') {
+        if (!!params.name) self.setName(params.name);
+
+        // other state variables may be set here
+        if (!!params.whatever) {
+          // may wish to range-check params.whatever here...
+
+          self.info.whatever = params.whatever;
+          self.setInfo();
+        }
+
+        return steward.performed(taskID);
+      }
+
+     // any other tasks allowed?
+     if (perform === '...') {
+     }
+
+     return false;
+    };
+
+
+### The start() function: Linkage
 
 As noted earlier, this function performs two tasks.
 The first task is to link the device prototype into the steward:
@@ -153,7 +236,7 @@ At a minimum,
 Every device must support a "set" task in order to set the name of the device instance.
 The array may be empty (the "set" task does not appear in the array).
 
-*_properties_: a list of property names and syntaxes.
+* _properties_: a list of property names and syntaxes.
 Consult the _Device Taxonomy_ section below for a list of defined properties and corresponding syntaxes.
 
 The _$list_ and _$lookup_ fields are for "special" kinds of actors, and are described later.
@@ -238,7 +321,7 @@ prefix:
 ## Design Patterns
 There are three design patterns currently in use for device actors.
 
-### Standaline Actor
+### Standalone Actor
 A standalone actor refers to a device that is discovered by the steward and doesn't discover anything on its own.
 
 Examples of standalone actors include:
@@ -344,7 +427,7 @@ an authorized client sends:
     , parameter : 'PARAM'
     }
 
-where _ID_ corresponds to the _deviceID_ of the device to be deleted,
+where _ID_ corresponds to the _deviceID_ of the device to perform the task,
 _X_ is any non-empty string,
 _TASK_ identifies a task to be performed,
 and _PARAM_ (if present) provides parameters for the task, e.g.,

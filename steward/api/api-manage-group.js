@@ -12,6 +12,7 @@ var util       = require('util')
 
 var groups    = exports.groups    = {};
 var operators = exports.operators = { and: 0, or: 1, not: 2 };
+// TBD: replace 'device' with 'actor' ???
 var types     = exports.types     = { device: 'device', event: 'event', task: 'task' };
 
 var db;
